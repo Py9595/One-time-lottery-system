@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=1.5, minimum-scale=0.5">
+  <title>🎰 赛博抽奖系统 | 智能验证·速度控制</title>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js">
+</script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js">
+</script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js">
+</script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
+</script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
+      background: #000010;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      color: #fff;
+      user-select: none;
+    }
+    #viewer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    #topBar {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      display: flex;
+      gap: 20px;
+      background: rgba(5, 5, 20, 0.8);
+      backdrop-filter: blur(20px);
+      padding: 10px 28px;
+      border-radius: 40px;
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      box-shadow: 0 0 30px rgba(0, 200, 255, 0.15);
+    }
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: #aac;
+    }
+    .stat-value {
+      color: #0ff;
+      font-weight: bold;
+      font-size: 16px;
+      text-shadow: 0 0 10px #0ff;
+    }
+    #resultDisplay {
+      position: absolute;
+      top: 110px;
+      right: 25px;
+      z-index: 20;
+      background: rgba(5, 5, 20, 0.85);
+      backdrop-filter: blur(20px);
+      border-radius: 18px;
+      padding: 16px 24px;
+      border: 2px solid rgba(0, 255, 255, 0.4);
+      box-shadow: 0 0 35px rgba(0, 200, 255, 0.25), inset 0 0 20px rgba(0, 255, 255, 0.05);
+      text-align: center;
+      min-width: 150px;
+      max-width: 240px;
+    }
+    .prize-label {
+      font-size: 12px;
+      color: #0ff;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+    .winner-text {
+      font-size: 22px;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 20px #0ff, 0 0 40px #0af;
+      margin: 6px 0;
+      line-height: 1.4;
+      word-break: break-all;
+    }
+    #historyPanel {
+      position: absolute;
+      bottom: 130px;
+      right: 25px;
+      z-index: 20;
+      background: rgba(5, 5, 20, 0.85);
+      backdrop-filter: blur(15px);
+      border-radius: 14px;
+      padding: 12px;
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      max-height: 220px;
+      overflow-y: auto;
+      width: 200px;
+      font-size: 11px;
+    }
+    #historyPanel h4 {
+      color: #0ff;
+      margin-bottom: 8px;
+      font-size: 13px;
+      letter-spacing: 2px;
+    }
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 8px;
+      margin: 3px 0;
+      background: rgba(0, 255, 255, 0.04);
+      border-radius: 4px;
+      border-left: 2px solid #0ff;
+    }
+    .history-item .name {
+      color: #ddd;
+    }
+    .history-item .prize {
+      color: #0ff;
+    }
+    #controlPanel {
+      position: absolute;
+      bottom: 25px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      background: rgba(5, 5, 20, 0.85);
+      backdrop-filter: blur(25px);
+      border-radius: 40px;
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      border: 1px solid rgba(0, 255, 255, 0.4);
+      box-shadow: 0 0 40px rgba(0, 150, 255, 0.2);
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    #controlPanel select,
+    #controlPanel input {
+      background: rgba(0, 10, 20, 0.7);
+      border: 1px solid rgba(0, 255, 255, 0.4);
+      border-radius: 25px;
+      color: #0ff;
+      padding: 9px 14px;
+      font-size: 13px;
+      outline: none;
+      font-family: inherit;
+    }
+    #controlPanel select {
+      min-width: 170px;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%230ff' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+    #controlPanel input {
+      width: 60px;
+      text-align: center;
+      color: #fff;
+    }
+    .remaining-display {
+      font-size: 18px;
+      font-weight: bold;
+      color: #0ff;
+      text-shadow: 0 0 15px #0ff;
+      margin: 0 4px;
+    }
+    .ctrl-btn {
+      padding: 9px 20px;
+      border-radius: 25px;
+      border: 1px solid rgba(0, 255, 255, 0.5);
+      background: rgba(10, 15, 30, 0.8);
+      color: #0ff;
+      font-weight: bold;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s;
+      letter-spacing: 1px;
+      white-space: nowrap;
+      text-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
+    }
+    .ctrl-btn:hover {
+      background: rgba(0, 30, 50, 0.9);
+      box-shadow: 0 0 25px rgba(0, 200, 255, 0.5);
+      border-color: #0ff;
+    }
+    .ctrl-btn.primary {
+      background: linear-gradient(135deg, #003344, #0088aa);
+      color: #fff;
+      border: none;
+      font-size: 15px;
+      padding: 11px 26px;
+      text-shadow: 0 0 15px #0ff;
+    }
+    .ctrl-btn.primary:hover {
+      box-shadow: 0 0 35px rgba(0, 200, 255, 0.7);
+    }
+    .ctrl-btn.danger {
+      border-color: #ff4466;
+      color: #ff4466;
+      text-shadow: 0 0 8px rgba(255, 68, 102, 0.4);
+    }
+    .confirm-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 200;
+      justify-content: center;
+      align-items: center;
+    }
+    .confirm-overlay.active {
+      display: flex;
+    }
+    .confirm-box {
+      background: rgba(10, 15, 30, 0.95);
+      backdrop-filter: blur(20px);
+      border-radius: 20px;
+      padding: 28px 32px;
+      border: 2px solid rgba(0, 255, 255, 0.5);
+      box-shadow: 0 0 50px rgba(0, 200, 255, 0.4);
+      text-align: center;
+      max-width: 450px;
+      width: 90%;
+    }
+    .confirm-box h3 {
+      color: #ffaa00;
+      font-size: 20px;
+      margin-bottom: 12px;
+      letter-spacing: 2px;
+    }
+    .confirm-box .info {
+      color: #ccc;
+      font-size: 15px;
+      margin: 10px 0;
+      line-height: 1.8;
+    }
+    .confirm-box .info span {
+      color: #0ff;
+      font-weight: bold;
+    }
+    .confirm-box .warning {
+      color: #ff6644;
+      font-size: 14px;
+      margin: 8px 0;
+    }
+    .confirm-btns {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 150;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal.active {
+      display: flex;
+    }
+    .modal-content {
+      background: rgba(10, 15, 30, 0.95);
+      backdrop-filter: blur(25px);
+      border-radius: 20px;
+      padding: 25px;
+      width: 90%;
+      max-width: 550px;
+      border: 2px solid rgba(0, 255, 255, 0.5);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+      position: relative;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+    .modal-content h3 {
+      color: #0ff;
+      margin-bottom: 10px;
+      font-size: 16px;
+      letter-spacing: 2px;
+    }
+    .modal-content textarea,
+    .modal-content input {
+      width: 100%;
+      background: rgba(0, 10, 20, 0.6);
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      border-radius: 10px;
+      color: #fff;
+      padding: 10px;
+      margin: 5px 0;
+      font-family: inherit;
+      font-size: 14px;
+    }
+    .prize-edit-row {
+      display: flex;
+      gap: 8px;
+      margin: 5px 0;
+      align-items: center;
+    }
+    .close-btn {
+      position: absolute;
+      top: 8px;
+      right: 15px;
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 22px;
+      cursor: pointer;
+    }
+    .speed-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 10px 0;
+    }
+    .speed-control label {
+      color: #0ff;
+      font-size: 14px;
+      letter-spacing: 1px;
+    }
+    .speed-control input[type="range"] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 6px;
+      background: linear-gradient(to right, #003344, #0ff);
+      border-radius: 3px;
+      outline: none;
+    }
+    .speed-control input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      background: #0ff;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 15px #0ff;
+    }
+    .speed-value {
+      color: #0ff;
+      font-weight: bold;
+      min-width: 40px;
+      text-align: center;
+    }
+    .toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 200, 255, 0.9);
+      color: #000;
+      padding: 10px 25px;
+      border-radius: 25px;
+      z-index: 250;
+      font-size: 14px;
+      font-weight: bold;
+      animation: fadeInOut 2.5s forwards;
+      pointer-events: none;
+    }
+    .toast.error {
+      background: rgba(255, 80, 80, 0.9);
+      color: #fff;
+    }
+    @keyframes fadeInOut {
+      0% {
+        opacity: 0;
+        top: 0;
+      }
+      15% {
+        opacity: 1;
+        top: 20px;
+      }
+      75% {
+        opacity: 1;
+        top: 20px;
+      }
+      100% {
+        opacity: 0;
+        top: 0;
+      }
+    }
+    @media (max-width: 768px) {
+      #controlPanel {
+        gap: 8px;
+        padding: 10px 15px;
+      }
+      .ctrl-btn {
+        padding: 7px 13px;
+        font-size: 11px;
+      }
+      #historyPanel {
+        width: 150px;
+        right: 5px;
+        bottom: 110px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="viewer"></div>
+
+  <div id="topBar">
+    <div class="stat-item">👥 总人数 <span class="stat-value" id="peopleCount">0</span></div>
+    <div class="stat-item">🎁 奖品剩余 <span class="stat-value" id="totalRemaining">0</span></div>
+    <div class="stat-item">🏅 已中奖 <span class="stat-value" id="wonCount">0</span></div>
+  </div>
+
+  <div id="resultDisplay">
+    <div class="prize-label" id="currentPrizeLabel">◆ 待抽奖 ◆</div>
+    <div class="winner-text" id="winnerText">——</div>
+  </div>
+
+  <div id="historyPanel">
+    <h4>◈ 中奖记录</h4>
+    <div id="historyList">暂无记录</div>
+    <button class="ctrl-btn" id="exportBtn" style="width:100%;margin-top:8px;font-size:11px;">📥 导出Excel</button>
+  </div>
+
+  <div id="controlPanel">
+    <select id="prizeSelect"><option value="">-- 选择奖品 --</option></select>
+    <span style="color:#aac;font-size:13px;">抽取</span>
+    <input type="number" id="drawCountInput" value="1" min="1">
+    <span style="color:#aac;font-size:13px;">人</span>
+    <span style="display:flex;align-items:center;gap:2px;">
+      <span style="color:#ccc;font-size:14px;">剩余:</span>
+      <span class="remaining-display" id="remainingBadge">-</span>
+    </span>
+    <button class="ctrl-btn primary" id="startDrawBtn">◆ 抽奖</button>
+    <button class="ctrl-btn danger" id="stopDrawBtn">■ 停止</button>
+    <button class="ctrl-btn" id="manageBtn">⚙ 管理</button>
+    <button class="ctrl-btn" id="resetHistoryBtn">↻ 重置记录</button>
+  </div>
+
+  <!-- 确认弹窗 -->
+  <div class="confirm-overlay" id="confirmOverlay">
+    <div class="confirm-box">
+      <h3>⚠️ 抽奖确认</h3>
+      <div class="info" id="confirmInfo"></div>
+      <div class="warning" id="confirmWarning"></div>
+      <div class="confirm-btns">
+        <button class="ctrl-btn primary" id="confirmYesBtn">✓ 确认抽奖</button>
+        <button class="ctrl-btn danger" id="confirmNoBtn">✕ 取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 管理弹窗 -->
+  <div class="modal" id="manageModal">
+    <div class="modal-content">
+      <button class="close-btn" id="closeModalBtn">✕</button>
+      <h3>👥 参与人员 (每行一个)</h3>
+      <textarea id="peopleInput" rows="6" placeholder="每行一个名字..."></textarea>
+      <h3 style="margin-top:16px;">🎁 奖品设置</h3>
+      <div id="prizeEditContainer"></div>
+      <button class="ctrl-btn" id="addPrizeEditBtn" style="width:100%;margin-top:8px;">＋ 添加奖品</button>
+      <div class="speed-control">
+        <label>🔄 球体旋转速度</label>
+        <input type="range" id="speedSlider" min="0" max="100" value="30">
+        <span class="speed-value" id="speedValue">30</span>
+      </div>
+      <button class="ctrl-btn primary" id="saveSettingsBtn" style="width:100%;margin-top:12px;">💾 保存并应用</button>
+    </div>
+  </div>
+
+  <script>
+    // ============ 全局变量 ============
+    let people = [];
+    let prizes = [];
+    let history = [];
+    let isRolling = false;
+    let rollTimer = null;
+    let nameSprites = [];
+    let pendingDrawConfig = null;
+    let rotationSpeed = 0.006; // 默认旋转速度
+
+    let scene, camera, renderer, mainGroup, controls;
+    const SPHERE_RADIUS = 4.2;
+
+    function showToast(msg, isError = false) {
+      const toast = document.createElement('div');
+      toast.className = 'toast' + (isError ? ' error' : '');
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2500);
+    }
+
+    // ============ 场景 ============
+    function initScene() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x020210);
+      camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.5, 100);
+      camera.position.set(6, 1.5, 8);
+      camera.lookAt(0, 0, 0);
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      document.getElementById('viewer').appendChild(renderer.domElement);
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.06;
+      controls.minDistance = 4;
+      controls.maxDistance = 14;
+      controls.target.set(0, 0, 0);
+      controls.rotateSpeed = 0.5;
+      scene.add(new THREE.AmbientLight(0x1a1a3a));
+      const l1 = new THREE.DirectionalLight(0xccddff, 0.5);
+      l1.position.set(10, 12, 8);
+      scene.add(l1);
+      const l2 = new THREE.PointLight(0x00aaff, 0.6, 18);
+      l2.position.set(4, 4, 6);
+      scene.add(l2);
+      const l3 = new THREE.PointLight(0xff0088, 0.3, 15);
+      l3.position.set(-6, -2, -4);
+      scene.add(l3);
+      mainGroup = new THREE.Group();
+      scene.add(mainGroup);
+      createCyberRings();
+      createParticleField();
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    }
+
+    function createCyberRings() {
+      const mr = new THREE.Mesh(
+        new THREE.TorusGeometry(SPHERE_RADIUS + 0.05, 0.1, 32, 128),
+        new THREE.MeshStandardMaterial({ color: 0x00ccff, emissive: new THREE.Color(0x003344), roughness: 0.2, metalness: 0.9 })
+      );
+      mr.rotation.x = Math.PI / 2;
+      mainGroup.add(mr);
+      const r2 = new THREE.Mesh(
+        new THREE.TorusGeometry(SPHERE_RADIUS + 0.25, 0.04, 24, 100),
+        new THREE.MeshStandardMaterial({ color: 0xff00aa, emissive: new THREE.Color(0x220011), roughness: 0.15, metalness: 0.85 })
+      );
+      r2.rotation.z = Math.PI / 3;
+      r2.rotation.x = Math.PI / 5;
+      mainGroup.add(r2);
+      const r3 = new THREE.Mesh(
+        new THREE.TorusGeometry(SPHERE_RADIUS + 0.4, 0.025, 20, 80),
+        new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: new THREE.Color(0x001111), roughness: 0.2, metalness: 0.75 })
+      );
+      r3.rotation.z = -Math.PI / 4;
+      r3.rotation.x = -Math.PI / 4;
+      mainGroup.add(r3);
+      const dashGeo = new THREE.BufferGeometry();
+      const dashPos = [];
+      for (let i = 0; i < 60; i++) {
+        const a = (i / 60) * Math.PI * 2;
+        dashPos.push(Math.cos(a) * (SPHERE_RADIUS + 0.15), 0, Math.sin(a) * (SPHERE_RADIUS + 0.15));
+      }
+      dashGeo.setAttribute('position', new THREE.Float32BufferAttribute(dashPos, 3));
+      mainGroup.add(new THREE.Points(dashGeo, new THREE.PointsMaterial({ color: 0x00ffff, size: 0.08, blending: THREE.AdditiveBlending })));
+      mainGroup.add(new THREE.Mesh(
+        new THREE.SphereGeometry(SPHERE_RADIUS - 0.15, 20, 20),
+        new THREE.MeshBasicMaterial({ color: 0x004466, wireframe: true, transparent: true, opacity: 0.15 })
+      ));
+      const core = new THREE.Mesh(
+        new THREE.SphereGeometry(0.3, 16, 16),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: new THREE.Color(0x0088ff), roughness: 0.1, metalness: 0.5 })
+      );
+      mainGroup.add(core);
+      const pGeo = new THREE.CylinderGeometry(0.05, 0.05, SPHERE_RADIUS * 2, 8);
+      const pMat = new THREE.MeshBasicMaterial({ color: 0x00aaff, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending });
+      [0, Math.PI / 2, Math.PI / 2].forEach((rot, i) => {
+        const p = new THREE.Mesh(pGeo, pMat);
+        if (i === 1) p.rotation.x = rot;
+        if (i === 2) p.rotation.z = rot;
+        mainGroup.add(p);
+      });
+    }
+
+    function createParticleField() {
+      const geo = new THREE.BufferGeometry();
+      const pos = new Float32Array(400 * 3);
+      for (let i = 0; i < 400 * 3; i += 3) {
+        pos[i] = (Math.random() - 0.5) * 20;
+        pos[i + 1] = (Math.random() - 0.5) * 15;
+        pos[i + 2] = (Math.random() - 0.5) * 15;
+      }
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      const p = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x0088cc, size: 0.03, blending: THREE.AdditiveBlending, transparent: true,
+        opacity: 0.6 }));
+      p.name = 'starField';
+      scene.add(p);
+    }
+
+    function createNameSprite(name, hl = false) {
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 56;
+      const ctx = c.getContext('2d');
+      const g = ctx.createLinearGradient(0, 0, 256, 0);
+      if (hl) { g.addColorStop(0, 'rgba(0,200,255,0.95)');
+        g.addColorStop(1, 'rgba(0,255,200,0.95)'); } else { g.addColorStop(0, 'rgba(5,10,25,0.9)');
+        g.addColorStop(1, 'rgba(10,20,40,0.9)'); }
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.roundRect(8, 4, 240, 48, 10);
+      ctx.fill();
+      ctx.strokeStyle = hl ? '#fff' : 'rgba(0,200,255,0.7)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(8, 4, 240, 48, 10);
+      ctx.stroke();
+      ctx.fillStyle = '#0ff';
+      ctx.shadowColor = '#0ff';
+      ctx.shadowBlur = 8;
+      ctx.fillRect(6, 2, 10, 2);
+      ctx.fillRect(6, 2, 2, 10);
+      ctx.fillRect(248, 50, 10, 2);
+      ctx.fillRect(254, 42, 2, 10);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = hl ? '#000' : '#e0f0ff';
+      ctx.font = 'bold 20px "Microsoft YaHei","PingFang SC",sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = hl ? 'transparent' : '#0af';
+      ctx.shadowBlur = hl ? 0 : 6;
+      ctx.fillText(name, 128, 28);
+      ctx.shadowBlur = 0;
+      const tex = new THREE.CanvasTexture(c);
+      tex.minFilter = THREE.LinearFilter;
+      const mat = new THREE.SpriteMaterial({ map: tex, depthTest: true, depthWrite: true });
+      const s = new THREE.Sprite(mat);
+      s.scale.set(1.6, 0.35, 1);
+      s.userData = { name, _hl: hl };
+      return s;
+    }
+
+    function buildNameSphere() {
+      nameSprites.forEach(s => { if (s.material.map) s.material.map.dispose();
+        s.material.dispose();
+        mainGroup.remove(s); });
+      nameSprites = [];
+      if (!people.length) return;
+      const phi = Math.PI * (3 - Math.sqrt(5));
+      for (let i = 0; i < people.length; i++) {
+        const y = 1 - (i / (people.length - 1)) * 2;
+        const r = Math.sqrt(1 - y * y);
+        const th = phi * i;
+        const s = createNameSprite(people[i], false);
+        s.position.set(Math.cos(th) * r * SPHERE_RADIUS, y * SPHERE_RADIUS, Math.sin(th) * r * SPHERE_RADIUS);
+        s.userData.name = people[i];
+        mainGroup.add(s);
+        nameSprites.push(s);
+      }
+    }
+
+    function highlightCards(names) {
+      nameSprites.forEach(s => {
+        const hl = names.includes(s.userData.name);
+        if (s.userData._hl === hl) return;
+        s.userData._hl = hl;
+        if (s.material.map) s.material.map.dispose();
+        s.material.dispose();
+        const ns = createNameSprite(s.userData.name, hl);
+        s.material = ns.material;
+        s.scale.set(hl ? 2.0 : 1.6, hl ? 0.44 : 0.35, 1);
+      });
+    }
+
+    // ============ 数据 ============
+    function collectPrizesFromModal() {
+      const rows = document.querySelectorAll('#prizeEditContainer .prize-edit-row');
+      const map = new Map();
+      rows.forEach(r => {
+        const n = r.querySelector('.prize-edit-name').value.trim();
+        const c = parseInt(r.querySelector('.prize-edit-count').value) || 1;
+        if (n) map.set(n, (map.get(n) || 0) + c);
+      });
+      const np = [];
+      map.forEach((t, n) => {
+        const ex = prizes.find(p => p.name === n);
+        np.push({ name: n, totalCount: t, remaining: ex ? Math.min(ex.remaining, t) : t });
+      });
+      prizes = np;
+    }
+
+    function refreshPrizeSelect() {
+      const sel = document.getElementById('prizeSelect');
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">-- 选择奖品 --</option>';
+      prizes.forEach((p, i) => {
+        if (p.remaining > 0) {
+          const o = document.createElement('option');
+          o.value = i;
+          o.textContent = `${p.name} [${p.remaining}/${p.totalCount}]`;
+          sel.appendChild(o);
+        }
+      });
+      if (cur && prizes[parseInt(cur)]?.remaining > 0) sel.value = cur;
+      updateBadge();
+      updateStats();
+    }
+
+    function updateBadge() {
+      const i = document.getElementById('prizeSelect').value !== '' ? parseInt(document.getElementById('prizeSelect').value) : -1;
+      document.getElementById('remainingBadge').textContent = i >= 0 && prizes[i] ? prizes[i].remaining : '-';
+      document.getElementById('currentPrizeLabel').textContent = i >= 0 && prizes[i] ? '◆ ' + prizes[i].name + ' ◆' :
+        '◆ 待抽奖 ◆';
+    }
+
+    function updateStats() {
+      document.getElementById('peopleCount').textContent = people.length;
+      document.getElementById('totalRemaining').textContent = prizes.reduce((s, p) => s + p.remaining, 0);
+      document.getElementById('wonCount').textContent = history.length;
+    }
+
+    function updateHistoryUI() {
+      const c = document.getElementById('historyList');
+      if (!history.length) { c.innerHTML = '<div style="color:#555;">暂无记录</div>'; return; }
+      c.innerHTML = history.slice(-40).reverse().map(h =>
+        `<div class="history-item"><span class="name">${h.person}</span><span class="prize">${h.prize}</span></div>`).join('');
+      if (history.length > 40) c.innerHTML += `<div style="color:#555;">...共${history.length}条</div>`;
+    }
+
+    function getAvailable() {
+      const won = new Set(history.map(h => h.person));
+      return people.filter(p => !won.has(p));
+    }
+
+    // ============ 确认弹窗(仅异常时) ============
+    function showConfirm(config) {
+      pendingDrawConfig = config;
+      document.getElementById('confirmInfo').innerHTML = `
+        奖品：<span>${config.prizeName}</span><br>
+        设置抽取：<span>${config.originalCount}</span> 人 → 修正为 <span>${config.drawCount}</span> 人<br>
+        该奖品剩余：<span>${config.prizeRemaining}</span> 个<br>
+        可抽奖人数：<span>${config.availableCount}</span> 人
+      `;
+      document.getElementById('confirmWarning').textContent = config.warning || '';
+      document.getElementById('confirmOverlay').classList.add('active');
+    }
+
+    function hideConfirm() {
+      document.getElementById('confirmOverlay').classList.remove('active');
+      pendingDrawConfig = null;
+    }
+
+    function executeDraw(config) {
+      const { prizeIdx, drawCount, available } = config;
+      isRolling = true;
+      document.getElementById('startDrawBtn').disabled = true;
+      let rc = 0;
+      if (rollTimer) clearInterval(rollTimer);
+      rollTimer = setInterval(() => {
+        const temp = [...available].sort(() => Math.random() - 0.5).slice(0, drawCount);
+        document.getElementById('winnerText').textContent = temp.join(' 、 ');
+        highlightCards(temp);
+        rc++;
+        if (rc >= 35) {
+          clearInterval(rollTimer);
+          rollTimer = null;
+          const final = [...available].sort(() => Math.random() - 0.5).slice(0, drawCount);
+          document.getElementById('winnerText').textContent = final.join(' 、 ');
+          highlightCards(final);
+          prizes[prizeIdx].remaining -= drawCount;
+          const now = new Date().toLocaleString();
+          final.forEach(p => history.push({ person: p, prize: prizes[prizeIdx].name, time: now }));
+          refreshPrizeSelect();
+          updateHistoryUI();
+          updateStats();
+          mainGroup.scale.set(1.05, 1.05, 1.05);
+          setTimeout(() => mainGroup.scale.set(1, 1, 1), 200);
+          isRolling = false;
+          document.getElementById('startDrawBtn').disabled = false;
+        }
+      }, 50);
+    }
+
+    // ============ 抽奖入口(智能验证) ============
+    function requestDraw() {
+      if (isRolling) return;
+      const sel = document.getElementById('prizeSelect');
+      const prizeIdx = sel.value !== '' ? parseInt(sel.value) : -1;
+      if (prizeIdx < 0 || !prizes[prizeIdx]) { showToast('请选择奖品', true); return; }
+      if (prizes[prizeIdx].remaining <= 0) { showToast('奖品已抽完', true); return; }
+
+      const originalCount = parseInt(document.getElementById('drawCountInput').value) || 1;
+      if (originalCount < 1) { showToast('至少抽1人', true); return; }
+
+      const available = getAvailable();
+      if (available.length === 0) { showToast('无人可抽', true); return; }
+
+      let drawCount = originalCount;
+      let needConfirm = false;
+      let warningMsg = '';
+
+      // 验证1：抽取人数不得超过奖品剩余
+      if (drawCount > prizes[prizeIdx].remaining) {
+        drawCount = prizes[prizeIdx].remaining;
+        needConfirm = true;
+        warningMsg = '⚠️ 抽取人数超过该奖品剩余数量，已自动修正';
+      }
+
+      // 验证2：可抽奖人数不足
+      if (drawCount > available.length) {
+        drawCount = available.length;
+        needConfirm = true;
+        warningMsg += (warningMsg ? '；' : '⚠️ ') + '剩余未抽奖人数不足，已自动修正';
+      }
+
+      // 更新输入框
+      document.getElementById('drawCountInput').value = drawCount;
+
+      if (needConfirm) {
+        showConfirm({
+          prizeIdx,
+          prizeName: prizes[prizeIdx].name,
+          originalCount,
+          drawCount,
+          prizeRemaining: prizes[prizeIdx].remaining,
+          availableCount: available.length,
+          available,
+          warning: warningMsg
+        });
+      } else {
+        // 正常逻辑直接执行
+        executeDraw({ prizeIdx, drawCount, available });
+      }
+    }
+
+    function stopDraw() {
+      if (!isRolling) return;
+      if (rollTimer) { clearInterval(rollTimer);
+        rollTimer = null; }
+      isRolling = false;
+      document.getElementById('startDrawBtn').disabled = false;
+    }
+
+    function resetHistory() {
+      if (isRolling) stopDraw();
+      if (!history.length) { showToast('无记录'); return; }
+      if (confirm('清空所有中奖记录并恢复奖品数量？')) {
+        history = [];
+        prizes.forEach(p => p.remaining = p.totalCount);
+        refreshPrizeSelect();
+        updateHistoryUI();
+        updateStats();
+        document.getElementById('winnerText').textContent = '——';
+        highlightCards([]);
+        showToast('已重置');
+      }
+    }
+
+    function exportExcel() {
+      if (!history.length) { showToast('无记录', true); return; }
+      const data = history.map((h, i) => ({ '序号': i + 1, '中奖人': h.person, '奖品': h.prize, '时间': h.time }));
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '中奖记录');
+      XLSX.writeFile(wb, `抽奖记录_${new Date().toISOString().slice(0,10)}.xlsx`);
+      showToast('导出成功！');
+    }
+
+    function saveSettings() {
+      stopDraw();
+      const np = document.getElementById('peopleInput').value.trim().split('\n').filter(n => n.trim());
+      if (!np.length) { showToast('至少1人', true); return; }
+      people = np;
+      collectPrizesFromModal();
+      if (!prizes.length) { showToast('至少1个奖品', true); return; }
+
+      // 验证总奖品数
+      const totalPrizeCount = prizes.reduce((s, p) => s + p.totalCount, 0);
+      if (totalPrizeCount > people.length) {
+        showToast(`总奖品数(${totalPrizeCount})大于总人数(${people.length})，请调整`, true);
+        return;
+      }
+
+      history = history.filter(h => people.includes(h.person));
+      prizes.forEach(p => {
+        const used = history.filter(h => h.prize === p.name).length;
+        p.remaining = Math.max(0, p.totalCount - used);
+      });
+      // 读取速度
+      rotationSpeed = parseInt(document.getElementById('speedSlider').value) / 5000;
+      buildNameSphere();
+      refreshPrizeSelect();
+      updateHistoryUI();
+      updateStats();
+      document.getElementById('winnerText').textContent = '——';
+      highlightCards([]);
+      document.getElementById('manageModal').classList.remove('active');
+      showToast('设置已保存');
+    }
+
+    function openManageModal() {
+      document.getElementById('peopleInput').value = people.join('\n');
+      const container = document.getElementById('prizeEditContainer');
+      container.innerHTML = '';
+      (prizes.length ? prizes : [{ name: '', totalCount: 1, remaining: 1 }]).forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'prize-edit-row';
+        row.innerHTML = `
+          <input class="prize-edit-name" value="${p.name}" style="flex:2;">
+          <input class="prize-edit-count" type="number" value="${p.totalCount}" min="1" style="flex:1;">
+          <button class="ctrl-btn danger remove-prize-edit" style="padding:6px 12px;">✕</button>
+        `;
+        container.appendChild(row);
+        row.querySelector('.remove-prize-edit').addEventListener('click', () => {
+          if (container.children.length > 1) row.remove();
+        });
+      });
+      document.getElementById('speedSlider').value = Math.round(rotationSpeed * 5000);
+      document.getElementById('speedValue').textContent = Math.round(rotationSpeed * 5000);
+      document.getElementById('manageModal').classList.add('active');
+    }
+
+    // ============ 事件 ============
+    function bindEvents() {
+      document.getElementById('manageBtn').addEventListener('click', openManageModal);
+      document.getElementById('closeModalBtn').addEventListener('click', () => document.getElementById('manageModal').classList.remove(
+        'active'));
+      document.getElementById('manageModal').addEventListener('click', e => {
+        if (e.target === document.getElementById('manageModal')) document.getElementById('manageModal').classList.remove('active');
+      });
+      document.getElementById('addPrizeEditBtn').addEventListener('click', () => {
+        const container = document.getElementById('prizeEditContainer');
+        const row = document.createElement('div');
+        row.className = 'prize-edit-row';
+        row.innerHTML = `
+          <input class="prize-edit-name" placeholder="新奖品" style="flex:2;">
+          <input class="prize-edit-count" type="number" value="1" min="1" style="flex:1;">
+          <button class="ctrl-btn danger remove-prize-edit" style="padding:6px 12px;">✕</button>
+        `;
+        container.appendChild(row);
+        row.querySelector('.remove-prize-edit').addEventListener('click', () => {
+          if (container.children.length > 1) row.remove();
+        });
+      });
+      document.getElementById('speedSlider').addEventListener('input', function() {
+        document.getElementById('speedValue').textContent = this.value;
+        rotationSpeed = parseInt(this.value) / 5000;
+      });
+      document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
+      document.getElementById('prizeSelect').addEventListener('change', updateBadge);
+      document.getElementById('startDrawBtn').addEventListener('click', requestDraw);
+      document.getElementById('stopDrawBtn').addEventListener('click', stopDraw);
+      document.getElementById('resetHistoryBtn').addEventListener('click', resetHistory);
+      document.getElementById('exportBtn').addEventListener('click', exportExcel);
+      document.getElementById('confirmYesBtn').addEventListener('click', () => {
+        if (pendingDrawConfig) { executeDraw(pendingDrawConfig);
+          hideConfirm(); }
+      });
+      document.getElementById('confirmNoBtn').addEventListener('click', hideConfirm);
+      setInterval(() => {
+        if (!document.getElementById('manageModal').classList.contains('active')) refreshPrizeSelect();
+      }, 1000);
+    }
+
+    // ============ 动画 ============
+    function animate() {
+      requestAnimationFrame(animate);
+      if (mainGroup) {
+        mainGroup.rotation.y += isRolling ? rotationSpeed * 6 : rotationSpeed;
+        mainGroup.rotation.x += 0.001;
+      }
+      const stars = scene.getObjectByName('starField');
+      if (stars) stars.rotation.y += 0.0003;
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    // ============ 启动 ============
+    function init() {
+      people = [];
+      for (let i = 1; i <= 200; i++) people.push(`员工${String(i).padStart(3, '0')}`);
+      prizes = [
+        { name: '特等奖', totalCount: 1, remaining: 1 },
+        { name: '一等奖', totalCount: 3, remaining: 3 },
+        { name: '二等奖', totalCount: 5, remaining: 5 },
+        { name: '三等奖', totalCount: 10, remaining: 10 }
+      ];
+      history = [];
+      initScene();
+      buildNameSphere();
+      refreshPrizeSelect();
+      updateHistoryUI();
+      updateStats();
+      bindEvents();
+      animate();
+    }
+    init();
+  </script>
+</body>
+</html>
